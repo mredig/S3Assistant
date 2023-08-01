@@ -1,6 +1,6 @@
 import Foundation
 
-public extension Array where Element == WasabiFileMetadata {
+public extension Array where Element == S3FileMetadata {
 	func deleteList(quiet: Bool = false) throws -> XMLDocument {
 		guard count <= 1000 else { throw ArrayError.moreThan1000Objects }
 

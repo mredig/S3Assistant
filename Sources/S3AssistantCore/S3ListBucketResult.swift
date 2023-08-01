@@ -1,12 +1,12 @@
 import Foundation
 
-public struct WasabiListBucketResult: CustomStringConvertible {
+public struct S3ListBucketResult: CustomStringConvertible {
 	public let prefix: String
 	public let delimiter: String
 	public let nextContinuation: String?
 
-	public let files: [WasabiFileMetadata]
-	public let folders: [WasabiFolder]
+	public let files: [S3FileMetadata]
+	public let folders: [S3Folder]
 
 	public var description: String {
 	"""

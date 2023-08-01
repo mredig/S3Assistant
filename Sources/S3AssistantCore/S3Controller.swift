@@ -1,7 +1,7 @@
 import Foundation
 import NetworkHandler
 
-public class WasabiController {
+public class S3Controller {
 	private(set) var items: [String] = []
 
 	private let authKey: String
@@ -21,7 +21,7 @@ public class WasabiController {
 		prefix: [String],
 		delimiter: String,
 		pageLimit: Int? = nil,
-		continuationToken: String? = nil) async throws -> WasabiListBucketResult {
+		continuationToken: String? = nil) async throws -> S3ListBucketResult {
 			try await getListing(
 				in: bucket,
 				prefix: "\(prefix.joined(separator: delimiter))\(delimiter)",
@@ -35,7 +35,7 @@ public class WasabiController {
 		prefix: String? = nil,
 		delimiter: String? = nil,
 		pageLimit: Int? = nil,
-		continuationToken: String? = nil) async throws -> WasabiListBucketResult {
+		continuationToken: String? = nil) async throws -> S3ListBucketResult {
 			let url = serviceURL
 				.appending(component: bucket)
 				.appending(queryItems: [
@@ -75,10 +75,10 @@ public class WasabiController {
 				let responseDelimiter = delimiterNode?.stringValue,
 				let responsePrefix = prefixNode?.stringValue
 			else { fatalError() }
-			let files = try filesNodes.map { try WasabiFileMetadata(from: $0, delimiter: responseDelimiter) }
-			let folders = foldersNodes.compactMap(\.stringValue).map { WasabiFolder(rawValue: $0, delimiter: responseDelimiter) }
+			let files = try filesNodes.map { try S3FileMetadata(from: $0, delimiter: responseDelimiter) }
+			let folders = foldersNodes.compactMap(\.stringValue).map { S3Folder(rawValue: $0, delimiter: responseDelimiter) }
 
-			return WasabiListBucketResult(prefix: responsePrefix, delimiter: responseDelimiter, nextContinuation: continuationNode?.stringValue, files: files, folders: folders)
+			return S3ListBucketResult(prefix: responsePrefix, delimiter: responseDelimiter, nextContinuation: continuationNode?.stringValue, files: files, folders: folders)
 		}
 
 	public func listAllFiles(
@@ -86,9 +86,9 @@ public class WasabiController {
 		prefix: String? = nil,
 		delimiter: String? = nil,
 		pageLimit: Int? = nil,
-		filter: (WasabiListBucketResult, inout Bool) -> [WasabiFileMetadata] = { result, _ in result.files } ) async throws -> [WasabiFileMetadata] {
+		filter: (S3ListBucketResult, inout Bool) -> [S3FileMetadata] = { result, _ in result.files } ) async throws -> [S3FileMetadata] {
 
-			var accumulatedFiles: [WasabiFileMetadata] = []
+			var accumulatedFiles: [S3FileMetadata] = []
 			var shouldContinue = true
 			var continuationToken: String?
 			repeat {
@@ -108,7 +108,7 @@ public class WasabiController {
 		}
 
 	public func delete(
-		items: [WasabiFileMetadata],
+		items: [S3FileMetadata],
 		inBucket bucket: String,
 		quiet: Bool = false) async throws {
 			let itemXml = try items.deleteList(quiet: quiet)

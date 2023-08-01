@@ -1,6 +1,6 @@
 import Foundation
 
-public struct WasabiFileMetadata: Codable, CustomStringConvertible {
+public struct S3FileMetadata: Codable, CustomStringConvertible {
 	public let key: String
 	public var name: String { key.split(separator: delimiter).last.flatMap { String($0) } ?? "" }
 	public let delimiter: String

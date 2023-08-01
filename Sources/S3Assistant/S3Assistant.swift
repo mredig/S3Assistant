@@ -5,14 +5,14 @@ import Algorithms
 import SwiftlyDotEnv
 
 @main
-struct WasabiLogCleaner: AsyncParsableCommand {
+struct S3Assistant: AsyncParsableCommand {
 
 //	static private let controller
 
     mutating func run() async throws {
 		try SwiftlyDotEnv.loadDotEnv()
 
-		let controller = WasabiController(
+		let controller = S3Controller(
 			authKey: SwiftlyDotEnv["authKey"]!,
 			authSecret: SwiftlyDotEnv["authSecret"]!,
 			serviceURL: SwiftlyDotEnv["serviceURL"]!,
@@ -24,7 +24,7 @@ struct WasabiLogCleaner: AsyncParsableCommand {
 //		try await deleteOldFileLoop()
     }
 
-	func deleteOldFileLoop(on controller: WasabiController) async throws {
+	func deleteOldFileLoop(on controller: S3Controller) async throws {
 		var deletedFileCount = 0
 
 		var oldFiles = try await accumulateOldFiles(on: controller)
@@ -57,10 +57,10 @@ struct WasabiLogCleaner: AsyncParsableCommand {
 		}
 	}
 
-	func accumulateOldFiles(on controller: WasabiController) async throws -> [WasabiFileMetadata] {
+	func accumulateOldFiles(on controller: S3Controller) async throws -> [S3FileMetadata] {
 		var continuationToken: String?
 
-		var oldFiles: [WasabiFileMetadata] = []
+		var oldFiles: [S3FileMetadata] = []
 
 		let ninetyDaysAgo = Date().addingTimeInterval(86400 * -90)
 
@@ -86,9 +86,9 @@ struct WasabiLogCleaner: AsyncParsableCommand {
 		return Array(oldFiles.prefix(10000))
 	}
 
-	func listAccumulatedFileInfo(on controller: WasabiController) async throws {
+	func listAccumulatedFileInfo(on controller: S3Controller) async throws {
 		var size: Int64 = 0
-		var files: [WasabiFileMetadata] = []
+		var files: [S3FileMetadata] = []
 		var oldFileCount = 0
 		var recentFileCount = 0
 
@@ -134,7 +134,7 @@ struct WasabiLogCleaner: AsyncParsableCommand {
 		} while continuationToken != nil
 	}
 
-	func getRecentFiles(on controller: WasabiController) async throws {
+	func getRecentFiles(on controller: S3Controller) async throws {
 
 		let oneDayAgo = Date().addingTimeInterval(-86400)
 
