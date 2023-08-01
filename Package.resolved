@@ -1,0 +1,77 @@
+{
+  "pins" : [
+    {
+      "identity" : "networkhandler",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mredig/NetworkHandler.git",
+      "state" : {
+        "revision" : "388019dae600ae93781a9fdd7aea7978e66fce65",
+        "version" : "2.3.0"
+      }
+    },
+    {
+      "identity" : "safercontinuation",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mredig/SaferContinuation.git",
+      "state" : {
+        "revision" : "81cf6fb6f982ac38b6b4be335858638c03aae35c",
+        "version" : "1.3.0"
+      }
+    },
+    {
+      "identity" : "swift-algorithms",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-algorithms",
+      "state" : {
+        "revision" : "b14b7f4c528c942f121c8b860b9410b2bf57825e",
+        "version" : "1.0.0"
+      }
+    },
+    {
+      "identity" : "swift-argument-parser",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-argument-parser.git",
+      "state" : {
+        "revision" : "fee6933f37fde9a5e12a1e4aeaa93fe60116ff2a",
+        "version" : "1.2.2"
+      }
+    },
+    {
+      "identity" : "swift-crypto",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-crypto.git",
+      "state" : {
+        "revision" : "067254c79435de759aeef4a6a03e43d087d61312",
+        "version" : "2.0.5"
+      }
+    },
+    {
+      "identity" : "swift-numerics",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-numerics",
+      "state" : {
+        "revision" : "0a5bc04095a675662cf24757cc0640aa2204253b",
+        "version" : "1.0.2"
+      }
+    },
+    {
+      "identity" : "swiftlydotenv",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mredig/SwiftlyDotEnv.git",
+      "state" : {
+        "revision" : "d5049b51d898ff89e3f0f5490205ea8fb7b13b48",
+        "version" : "0.1.1"
+      }
+    },
+    {
+      "identity" : "swiftwood",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/KnowMeGit/Swiftwood.git",
+      "state" : {
+        "revision" : "23841acf2243a622559d34bdf79959a98b86f344",
+        "version" : "0.3.3"
+      }
+    }
+  ],
+  "version" : 2
+}
