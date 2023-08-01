@@ -1,5 +1,5 @@
 import ArgumentParser
-import WasabiLogCleanerCore
+import S3AssistantCore
 import Foundation
 import Algorithms
 import SwiftlyDotEnv
