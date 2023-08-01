@@ -6,9 +6,6 @@ import SwiftlyDotEnv
 
 @main
 struct S3Assistant: AsyncParsableCommand {
-
-//	static private let controller
-
     mutating func run() async throws {
 		try SwiftlyDotEnv.loadDotEnv()
 
@@ -20,7 +17,6 @@ struct S3Assistant: AsyncParsableCommand {
 
 //		try await listAccumulatedFileInfo()
 		try await getRecentFiles(on: controller)
-
 //		try await deleteOldFileLoop()
     }
 
@@ -33,7 +29,6 @@ struct S3Assistant: AsyncParsableCommand {
 			let chunks = oldFiles.chunks(ofCount: 1000)
 
 			try await withThrowingTaskGroup(of: Int.self) { group in
-//				let oneMinuteLater = ContinuousClock.now.advanced(by: .seconds(61))
 				for chunk in chunks {
 					group.addTask {
 						try await controller.delete(
@@ -48,9 +43,6 @@ struct S3Assistant: AsyncParsableCommand {
 					deletedFileCount += addtlDeletedCount
 					print("Deleted \(deletedFileCount) logs")
 				}
-
-//				print("sleeping for a minute or so... \(ContinuousClock.now.duration(to: oneMinuteLater)) left")
-//				try await Task.sleep(until: oneMinuteLater)
 			}
 
 			oldFiles = try await accumulateOldFiles(on: controller)
@@ -71,7 +63,6 @@ struct S3Assistant: AsyncParsableCommand {
 				.getListing(
 					in: "logs",
 					delimiter: "/",
-//					pageLimit: 10,
 					continuationToken: continuationToken)
 
 			let newOldFiles = result.files.filter { $0.lastModified < ninetyDaysAgo }
@@ -103,7 +94,6 @@ struct S3Assistant: AsyncParsableCommand {
 				.getListing(
 					in: "logs",
 					delimiter: "/",
-//					pageLimit: 10,
 					continuationToken: continuationToken)
 
 			let additionalFiles = result.files
@@ -140,9 +130,7 @@ struct S3Assistant: AsyncParsableCommand {
 
 		let files = try await controller.listAllFiles(
 			in: "logs",
-//			prefix: <#T##String?#>,
 			delimiter: "/",
-//			pageLimit: <#T##Int?#>,
 			filter: { result, _ in
 				let recentFiles = result.files.filter { $0.lastModified > oneDayAgo }
 				print("found \(recentFiles.count)...")
