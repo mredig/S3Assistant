@@ -4,6 +4,8 @@ import Foundation
 import Algorithms
 import SwiftlyDotEnv
 
+typealias ENV = SwiftlyDotEnv
+
 @main
 struct S3Assistant: AsyncParsableCommand {
     mutating func run() async throws {
