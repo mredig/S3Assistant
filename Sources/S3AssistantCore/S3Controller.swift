@@ -86,6 +86,7 @@ public class S3Controller {
 		prefix: String? = nil,
 		delimiter: String? = nil,
 		pageLimit: Int? = nil,
+		recurse: Bool = false,
 		filter: (S3ListBucketResult, inout Bool) -> [S3FileMetadata] = { result, _ in result.files } ) async throws -> [S3FileMetadata] {
 
 			var accumulatedFiles: [S3FileMetadata] = []
@@ -101,6 +102,19 @@ public class S3Controller {
 
 				accumulatedFiles.append(contentsOf: filter(result, &shouldContinue))
 				continuationToken = result.nextContinuation
+
+				if recurse, result.folders.isEmpty == false {
+					for folder in result.folders {
+						let folderFiles = try await listAllFiles(
+							in: bucket,
+							prefix: folder.prefix,
+							delimiter: delimiter,
+							pageLimit: pageLimit,
+							recurse: recurse,
+							filter: filter)
+						accumulatedFiles.append(contentsOf: folderFiles)
+					}
+				}
 
 			} while continuationToken != nil && shouldContinue == true
 
