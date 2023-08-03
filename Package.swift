@@ -31,6 +31,15 @@ let package = Package(
 			dependencies: [
 				"NetworkHandler",
 				"XMLCoder",
+			]),
+		.testTarget(
+			name: "S3AssistantTests",
+			dependencies: [
+				"S3AssistantCore",
+				"XMLCoder",
+			],
+			resources: [
+				.copy("TestAssets"),
 			])
 
     ]
