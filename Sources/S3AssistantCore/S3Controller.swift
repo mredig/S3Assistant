@@ -265,4 +265,70 @@ public class S3Controller {
 
 			return response.data
 		}
+
+	public enum WasabiMoveOperation {
+		case exact(sourceKey: String, destinationKey: String, overwrite: Bool)
+		case prefix(sourcePrefix: String, destinationPrefix: String, overwrite: Bool)
+
+		var source: String {
+			switch self {
+			case .exact(let source, _, _), .prefix(let source, _, _):
+				source
+			}
+		}
+
+		var destination: String {
+			switch self {
+			case .exact(_, let destination, _), .prefix(_, let destination, _):
+				destination
+			}
+		}
+
+		var overwrite: Bool {
+			switch self {
+			case .exact(_, _, let ow), .prefix(_, _, let ow):
+				ow
+			}
+		}
+
+		var isPrefix: Bool {
+			switch self {
+			case .exact:
+				false
+			case .prefix:
+				true
+			}
+		}
+	}
+	@discardableResult
+	public func wasabiRenameFiles(
+		in bucket: String,
+		operation: WasabiMoveOperation) async throws -> Data {
+			let url = serviceURL
+				.appending(component: bucket)
+				.appending(path: operation.source)
+
+			var request = url.request
+			request.httpMethod = "MOVE"
+
+			let awsAuth = AWSV4Signature(
+				requestMethod: "MOVE",
+				url: url,
+				awsKey: authKey,
+				awsSecret: authSecret,
+				awsRegion: region,
+				awsService: .s3,
+				payloadData: Data(),
+				additionalSignedHeaders: [
+					"Destination": "\(operation.destination)",
+					"Overwrite": "\(operation.overwrite)",
+					"X-Wasabi-Prefix": "\(operation.isPrefix)"
+				])
+
+			request = try awsAuth.processRequest(request)
+
+			let response = try await NetworkHandler.default.transferMahDatas(for: request)
+
+			return response.data
+		}
 }
