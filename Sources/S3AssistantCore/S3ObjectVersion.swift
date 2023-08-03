@@ -10,7 +10,7 @@ public struct S3ObjectVersion: Codable {
 	public let versionID: String
 
 	enum CodingKeys: String, CodingKey {
-		case eTag = "etag"
+		case eTag
 		case isLatest
 		case key
 		case lastModified
