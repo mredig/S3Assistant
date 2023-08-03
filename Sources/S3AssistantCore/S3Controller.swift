@@ -24,13 +24,13 @@ public class S3Controller {
 		self.region = region
 	}
 
-	public func getListing(
+	public func listObjects(
 		in bucket: String,
 		prefix: [String],
 		delimiter: String,
 		pageLimit: Int? = nil,
 		continuationToken: String? = nil) async throws -> S3ListBucketResult {
-			try await getListing(
+			try await listObjects(
 				in: bucket,
 				prefix: "\(prefix.joined(separator: delimiter))\(delimiter)",
 				delimiter: delimiter,
@@ -38,7 +38,7 @@ public class S3Controller {
 				continuationToken: continuationToken)
 		}
 
-	public func getListing(
+	public func listObjects(
 		in bucket: String,
 		prefix: String? = nil,
 		delimiter: String? = nil,
@@ -89,7 +89,7 @@ public class S3Controller {
 			return S3ListBucketResult(prefix: responsePrefix, delimiter: responseDelimiter, nextContinuation: continuationNode?.stringValue, files: files, folders: folders)
 		}
 
-	public func listAllFiles(
+	public func listAllObjects(
 		in bucket: String,
 		prefix: String? = nil,
 		delimiter: String? = nil,
@@ -101,7 +101,7 @@ public class S3Controller {
 			var shouldContinue = true
 			var continuationToken: String?
 			repeat {
-				let result = try await getListing(
+				let result = try await listObjects(
 					in: bucket,
 					prefix: prefix,
 					delimiter: delimiter,
@@ -113,7 +113,7 @@ public class S3Controller {
 
 				if recurse, result.folders.isEmpty == false {
 					for folder in result.folders {
-						let folderFiles = try await listAllFiles(
+						let folderFiles = try await listAllObjects(
 							in: bucket,
 							prefix: folder.prefix,
 							delimiter: delimiter,

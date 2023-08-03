@@ -17,92 +17,80 @@ struct S3Assistant: AsyncParsableCommand {
 			serviceURL: SwiftlyDotEnv["serviceURL"]!,
 			region: "\(SwiftlyDotEnv["region"]!)")
 
-		try await listAccumulatedFileInfo(in: "logs", prefix: "plex-folder/", on: controller)
-//		try await getRecentFiles(on: controller)
-//		try await deleteOldFileLoop()
-//		try await getFile(on: controller)
-//		try await moveFiles(
-//			in: "logs",
-//			operation: .prefix(sourcePrefix: <#T##String#>, destinationPrefix: <#T##String#>, overwrite: <#T##Bool#>),
-//			on: <#T##S3Controller#>)
+		try await deleteOldFiles(on: controller)
+
     }
 
-	func deleteOldFileLoop(on controller: S3Controller) async throws {
+	func deleteOldFiles(on controller: S3Controller) async throws {
 		var deletedFileCount = 0
+		let ninetyDaysAgo = Date().addingTimeInterval(86400 * -90)
 
-		var oldFiles = try await accumulateOldFiles(on: controller)
+		let oldFiles = try await accumulateOldFiles(
+			before: ninetyDaysAgo,
+			in: "logs",
+			prefix: nil,
+			recurse: true,
+			on: controller)
 
-		while oldFiles.isEmpty == false {
-			let chunks = oldFiles.chunks(ofCount: 1000)
+		let chunks = oldFiles.chunks(ofCount: 1000)
 
-			try await withThrowingTaskGroup(of: Int.self) { group in
-				for chunk in chunks {
-					group.addTask {
-						try await controller.delete(
-							items: Array(chunk),
-							inBucket: "logs",
-							quiet: false)
-						return chunk.count
-					}
-				}
-
-				for try await addtlDeletedCount in group {
-					deletedFileCount += addtlDeletedCount
-					print("Deleted \(deletedFileCount) logs")
+		try await withThrowingTaskGroup(of: Int.self) { group in
+			for chunk in chunks {
+				group.addTask {
+					try await controller.delete(
+						items: Array(chunk),
+						inBucket: "logs",
+						quiet: false)
+					return chunk.count
 				}
 			}
 
-			oldFiles = try await accumulateOldFiles(on: controller)
+			for try await addtlDeletedCount in group {
+				deletedFileCount += addtlDeletedCount
+				print("Deleted \(deletedFileCount) logs")
+			}
 		}
 	}
 
-	func accumulateOldFiles(on controller: S3Controller) async throws -> [S3FileMetadata] {
-		var continuationToken: String?
-
-		var oldFiles: [S3FileMetadata] = []
-
-		let ninetyDaysAgo = Date().addingTimeInterval(86400 * -90)
-
-		print("gathering...")
-
-		repeat {
-			let result = try await controller
-				.getListing(
-					in: "logs",
+	func accumulateOldFiles(
+		before: Date,
+		in bucket: String,
+		prefix: String?,
+		recurse: Bool,
+		on controller: S3Controller) async throws -> [S3FileMetadata] {
+			var accumulatedCount = 0
+			return try await controller
+				.listAllObjects(
+					in: bucket,
+					prefix: prefix,
 					delimiter: "/",
-					continuationToken: continuationToken)
-
-			let newOldFiles = result.files.filter { $0.lastModified < ninetyDaysAgo }
-			oldFiles.append(contentsOf: newOldFiles)
-			print("got \(oldFiles.count) files")
-			continuationToken = result.nextContinuation
-
-		} while continuationToken != nil && oldFiles.count < 10000
-
-		print("K got enough \(oldFiles.count)")
-
-		return Array(oldFiles.prefix(10000))
-	}
+					recurse: recurse) { result, _ in
+						let old = result.files.filter { $0.lastModified < before }
+						accumulatedCount += old.count
+						print("accumulated \(accumulatedCount) old files")
+						return old
+					}
+		}
 
 	func listAccumulatedFileInfo(
 		in bucket: String,
 		prefix: String?,
 		on controller: S3Controller) async throws {
 			let results = try await controller
-				.listAllFiles(
+				.listAllObjects(
 					in: bucket,
 					prefix: prefix,
 					delimiter: "/",
 					recurse: false)
 
-			print(results.prettyPrinted)
+			print(results.count)
 		}
 
 	func getRecentFiles(on controller: S3Controller) async throws {
 
 		let oneDayAgo = Date().addingTimeInterval(-86400 * 5)
 
-		let files = try await controller.listAllFiles(
+		let files = try await controller.listAllObjects(
 			in: "logs",
 //			prefix: ,
 			delimiter: "/",
@@ -125,7 +113,7 @@ struct S3Assistant: AsyncParsableCommand {
 
 		var totalSize: Int = 0
 		_ = try await controller
-			.listAllFiles(
+			.listAllObjects(
 				in: ENV["bucket"]!,
 				prefix: folderName,
 				delimiter: "/",
