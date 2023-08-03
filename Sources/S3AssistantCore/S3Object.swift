@@ -1,6 +1,6 @@
 import Foundation
 
-public struct S3FileMetadata: Codable, CustomStringConvertible {
+public struct S3Object: Codable, CustomStringConvertible {
 	public let key: String
 	public var name: String {
 		guard let delimiter else { return key }

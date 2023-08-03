@@ -57,7 +57,7 @@ struct S3Assistant: AsyncParsableCommand {
 		in bucket: String,
 		prefix: String?,
 		recurse: Bool,
-		on controller: S3Controller) async throws -> [S3FileMetadata] {
+		on controller: S3Controller) async throws -> [S3Object] {
 			var accumulatedCount = 0
 			return try await controller
 				.listAllObjects(

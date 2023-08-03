@@ -5,7 +5,7 @@ public struct S3ListBucketResult: CustomStringConvertible {
 	public let delimiter: String?
 	public let nextContinuation: String?
 
-	public let files: [S3FileMetadata]
+	public let files: [S3Object]
 	public let folders: [S3Folder]
 
 	public var description: String {

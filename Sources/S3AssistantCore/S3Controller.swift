@@ -81,7 +81,7 @@ public class S3Controller {
 
 			let responseDelimiter = delimiterNode?.stringValue
 			let responsePrefix = prefixNode?.stringValue
-			let files = try filesNodes.map { try S3FileMetadata(from: $0, delimiter: responseDelimiter) }
+			let files = try filesNodes.map { try S3Object(from: $0, delimiter: responseDelimiter) }
 			let folders = foldersNodes.compactMap(\.stringValue).map { S3Folder(rawValue: $0, delimiter: responseDelimiter) }
 
 			return S3ListBucketResult(prefix: responsePrefix, delimiter: responseDelimiter, nextContinuation: continuationNode?.stringValue, files: files, folders: folders)
@@ -93,9 +93,9 @@ public class S3Controller {
 		delimiter: String? = nil,
 		pageLimit: Int? = nil,
 		recurse: Bool = false,
-		filter: (S3ListBucketResult, inout Bool) -> [S3FileMetadata] = { result, _ in result.files } ) async throws -> [S3FileMetadata] {
+		filter: (S3ListBucketResult, inout Bool) -> [S3Object] = { result, _ in result.files } ) async throws -> [S3Object] {
 
-			var accumulatedFiles: [S3FileMetadata] = []
+			var accumulatedFiles: [S3Object] = []
 			var shouldContinue = true
 			var continuationToken: String?
 			repeat {
@@ -128,7 +128,7 @@ public class S3Controller {
 		}
 
 	public func delete(
-		items: [S3FileMetadata],
+		items: [S3Object],
 		inBucket bucket: String,
 		quiet: Bool = false) async throws {
 			let itemXml = try items.deleteList(quiet: quiet)
