@@ -5,8 +5,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mredig/NetworkHandler.git",
       "state" : {
-        "revision" : "388019dae600ae93781a9fdd7aea7978e66fce65",
-        "version" : "2.3.0"
+        "revision" : "2ab55bdd21944803983207f89b8dd469f49bf7a9",
+        "version" : "2.3.1"
       }
     },
     {
