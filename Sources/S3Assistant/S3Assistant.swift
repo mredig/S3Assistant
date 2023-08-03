@@ -17,9 +17,12 @@ struct S3Assistant: AsyncParsableCommand {
 			serviceURL: SwiftlyDotEnv["serviceURL"]!,
 			region: "\(SwiftlyDotEnv["region"]!)")
 
-//		try await listAccumulatedFileInfo()
-		try await getRecentFiles(on: controller)
+		try await listAccumulatedFileInfo(on: controller)
+//		try await getRecentFiles(on: controller)
 //		try await deleteOldFileLoop()
+//		try await getSizeOfWeddingFootage(on: controller)
+//		try await getFile(on: controller)
+//		try await moveFiles(on: controller)
     }
 
 	func deleteOldFileLoop(on controller: S3Controller) async throws {
@@ -80,50 +83,14 @@ struct S3Assistant: AsyncParsableCommand {
 	}
 
 	func listAccumulatedFileInfo(on controller: S3Controller) async throws {
-		var size: Int64 = 0
-		var files: [S3FileMetadata] = []
-		var oldFileCount = 0
-		var recentFileCount = 0
+		let results = try await controller
+			.listAllFiles(
+				in: "logs",
+				prefix: "plex-folder/plex-folder/",
+				delimiter: "/",
+				recurse: false)
 
-		let sizeFormatter = ByteCountFormatter()
-		sizeFormatter.countStyle = .file
-
-		let ninetyDaysAgo = Date().addingTimeInterval(86400 * -90)
-
-		var continuationToken: String?
-		repeat {
-			let result = try await controller
-				.getListing(
-					in: "logs",
-					delimiter: "/",
-					continuationToken: continuationToken)
-
-			let additionalFiles = result.files
-			files.append(contentsOf: additionalFiles)
-			let additionalSize = additionalFiles.map(\.size).reduce(Int64(0), { $0 + Int64($1) })
-			size += additionalSize
-			let counts = {
-				var old = 0
-				var new = 0
-				for file in additionalFiles {
-					if file.lastModified < ninetyDaysAgo {
-						old += 1
-					} else {
-						new += 1
-					}
-				}
-				return (old, new)
-			}()
-			oldFileCount += counts.0
-			recentFileCount += counts.1
-
-			print("\(files.count) files (\(oldFileCount) old files, \(recentFileCount) recent files)")
-			print(sizeFormatter.string(fromByteCount: size))
-			print()
-
-			continuationToken = result.nextContinuation
-
-		} while continuationToken != nil
+		print(results.prettyPrinted)
 	}
 
 	func getRecentFiles(on controller: S3Controller) async throws {
