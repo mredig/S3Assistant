@@ -79,10 +79,8 @@ public class S3Controller {
 			let filesNodes = resultNode?.children?.filter { $0.name == "Contents" } ?? []
 			let foldersNodes = resultNode?.children?.filter { $0.name == "CommonPrefixes" }.flatMap { $0.children ?? [] } ?? []
 
-			guard
-				let responseDelimiter = delimiterNode?.stringValue,
-				let responsePrefix = prefixNode?.stringValue
-			else { fatalError() }
+			let responseDelimiter = delimiterNode?.stringValue
+			let responsePrefix = prefixNode?.stringValue
 			let files = try filesNodes.map { try S3FileMetadata(from: $0, delimiter: responseDelimiter) }
 			let folders = foldersNodes.compactMap(\.stringValue).map { S3Folder(rawValue: $0, delimiter: responseDelimiter) }
 

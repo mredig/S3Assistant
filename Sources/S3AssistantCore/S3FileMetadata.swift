@@ -2,8 +2,11 @@ import Foundation
 
 public struct S3FileMetadata: Codable, CustomStringConvertible {
 	public let key: String
-	public var name: String { key.split(separator: delimiter).last.flatMap { String($0) } ?? "" }
-	public let delimiter: String
+	public var name: String {
+		guard let delimiter else { return key }
+		return key.split(separator: delimiter).last.flatMap { String($0) } ?? "" 
+	}
+	public let delimiter: String?
 	public let eTag: String
 	public let lastModified: Date
 	public let size: Int
@@ -34,7 +37,7 @@ public struct S3FileMetadata: Codable, CustomStringConvertible {
 
 	public init(
 		key: String,
-		delimiter: String,
+		delimiter: String?,
 		eTag: String,
 		lastModified: Date,
 		size: Int,
@@ -47,7 +50,7 @@ public struct S3FileMetadata: Codable, CustomStringConvertible {
 			self.storageClass = storageClass
 		}
 
-	init(from xmlNode: XMLNode, delimiter: String) throws {
+	init(from xmlNode: XMLNode, delimiter: String?) throws {
 		self.delimiter = delimiter
 		guard
 			let keyNode = xmlNode.children?.first(where: { $0.name == "Key" }),

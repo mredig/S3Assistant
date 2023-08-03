@@ -1,8 +1,8 @@
 import Foundation
 
 public struct S3ListBucketResult: CustomStringConvertible {
-	public let prefix: String
-	public let delimiter: String
+	public let prefix: String?
+	public let delimiter: String?
 	public let nextContinuation: String?
 
 	public let files: [S3FileMetadata]
@@ -10,8 +10,8 @@ public struct S3ListBucketResult: CustomStringConvertible {
 
 	public var description: String {
 	"""
-	S3 Result: \(prefix)
-		delimiter: \(delimiter)
+	S3 Result: \(prefix ?? "##noprefix##")
+		delimiter: \(delimiter ?? "##nodelimiter##")
 		files:
 	\(files.map(\.description).map { $0.addIndentation(count: 2)}.joined(separator: "\n"))
 		folders:
