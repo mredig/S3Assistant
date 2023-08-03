@@ -127,6 +127,45 @@ public class S3Controller {
 			return accumulatedFiles
 		}
 
+	public func listObjectVersions(
+		in bucket: String,
+		prefix: String? = nil,
+		delimiter: String? = nil,
+		pageLimit: Int? = nil,
+		keyMarker: String? = nil,
+		versionIDMarker: String? = nil) async throws -> Data {
+
+			let url = serviceURL
+				.appending(component: bucket)
+				.appending(queryItems: [
+					URLQueryItem(name: "versions", value: nil),
+					delimiter.flatMap { URLQueryItem(name: "delimiter", value: $0) },
+					prefix.flatMap { URLQueryItem(name: "prefix", value: $0) },
+					pageLimit.flatMap { URLQueryItem(name: "max-keys", value: "\($0)") },
+					keyMarker.flatMap { URLQueryItem(name: "key-marker", value: $0) },
+					versionIDMarker.flatMap { URLQueryItem(name: "version-id-marker", value: $0) },
+				].compactMap { $0 })
+
+			var request = url.request
+
+			let awsAuth = AWSV4Signature(
+				requestMethod: .get,
+				url: url,
+				awsKey: authKey,
+				awsSecret: authSecret,
+				awsRegion: region,
+				awsService: .s3,
+				payloadData: Data(),
+				additionalSignedHeaders: [:])
+
+			request = try awsAuth.processRequest(request)
+
+			let response = try await NetworkHandler.default.transferMahDatas(for: request)
+
+
+			return response.data
+		}
+
 	public func delete(
 		items: [S3Object],
 		inBucket bucket: String,
