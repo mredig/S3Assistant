@@ -9,6 +9,14 @@ public class S3Controller {
 	private let serviceURL: URL
 	private let region: AWSV4Signature.AWSRegion
 
+	// TODO: make AWSV4Signature.isoFormatter public instead
+	private static let isoFormatter: ISO8601DateFormatter = {
+		let formatter = ISO8601DateFormatter()
+		formatter.timeZone = .init(secondsFromGMT: 0)
+		formatter.formatOptions = [.withColonSeparatorInTime, .withDashSeparatorInDate, .withInternetDateTime]
+		return formatter
+	}()
+
 	public init(authKey: String, authSecret: String, serviceURL: String, region: AWSV4Signature.AWSRegion) {
 		self.authKey = authKey
 		self.authSecret = authSecret
@@ -157,4 +165,104 @@ public class S3Controller {
 			print(responseXml.xmlString(options: .nodePrettyPrint))
 		}
 
+	public enum ETagRequest {
+		case match(String)
+		case noneMatch(String)
+
+		var key: String {
+			switch self {
+			case .match: "If-Match"
+			case .noneMatch: "If-None-Match"
+			}
+		}
+		var value: String {
+			switch self {
+			case .match(let etag), .noneMatch(let etag):
+				etag
+			}
+		}
+	}
+	public enum ModificationRequest {
+		case modifiedSince(Date)
+		case unmodifiedSince(Date)
+
+		var key: String {
+			switch self {
+			case .modifiedSince: "If-Modified-Since"
+			case .unmodifiedSince: "If-Unmodified-Since"
+			}
+		}
+		var value: String {
+			switch self {
+			case .modifiedSince(let date), .unmodifiedSince(let date):
+				S3Controller.isoFormatter.string(from: date)
+			}
+		}
+	}
+	public enum ByteRange {
+		case startingFrom(offset: Int)
+		case startingAtBytesFromEnd(offset: Int)
+		case range(Range<Int>)
+
+		var value: String {
+			switch self {
+			case .startingFrom(let offset):
+				"bytes=\(offset)-"
+			case .startingAtBytesFromEnd(let offset):
+				"bytes=-\(offset)"
+			case .range(let range):
+				"bytes=\(range.lowerBound)-\(range.upperBound - 1)"
+			}
+		}
+	}
+	public func getObject(
+		in bucket: String,
+		withKey key: String,
+		etagRequest: ETagRequest? = nil,
+		modificationRequest: ModificationRequest? = nil,
+		versionID: String? = nil,
+		checksum: Bool = false,
+		byteRange: ByteRange? = nil) async throws -> Data {
+
+			let url = serviceURL
+				.appending(component: bucket)
+				.appending(queryItems: [
+					URLQueryItem(name: "key", value: key),
+					versionID.flatMap { URLQueryItem(name: "versionId", value: $0) },
+				].compactMap { $0 })
+
+			var request = url.request
+
+			if let byteRange {
+				print("byteRange is known not working - fix it!")
+				request.setValue("\(byteRange.value)", forHTTPHeaderField: .range)
+			}
+
+			var awsAuth = AWSV4Signature(
+				requestMethod: .get,
+				url: url,
+				awsKey: authKey,
+				awsSecret: authSecret,
+				awsRegion: region,
+				awsService: .s3,
+				payloadData: Data(),
+				additionalSignedHeaders: [:])
+			if let etagRequest {
+				awsAuth.additionalSignedHeaders["\(etagRequest.key)"] = "\(etagRequest.value)"
+			}
+			if let modificationRequest {
+				awsAuth.additionalSignedHeaders["\(modificationRequest.key)"] = "\(modificationRequest.value)"
+			}
+			if checksum {
+				print("checksum is known not working - fix it!")
+				awsAuth.additionalSignedHeaders["x-amz-checksum-mode"] = "ENABLED"
+			}
+
+
+			request = try awsAuth.processRequest(request)
+
+			let response = try await NetworkHandler.default.transferMahDatas(for: request)
+
+			return response.data
+		}
 }
