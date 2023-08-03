@@ -29,3 +29,13 @@ public extension Array where Element == S3FileMetadata {
 		case moreThan1000Objects
 	}
 }
+
+public extension Array where Element == S3FileMetadata {
+	var prettyPrinted: String {
+		"""
+		[
+		\(self.map(\.description).joined(separator: ",\n").addIndentation(count: 1))
+		]
+		"""
+	}
+}
