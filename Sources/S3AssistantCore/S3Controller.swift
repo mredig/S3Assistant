@@ -345,24 +345,22 @@ public class S3Controller {
 		operation: WasabiMoveOperation) async throws -> Data {
 			let url = serviceURL
 				.appending(component: bucket)
-				.appending(path: operation.source)
+				.appending(path: operation.source, directoryHint: .notDirectory)
 
 			var request = url.request
 			request.httpMethod = "MOVE"
 
-			let awsAuth = AWSV4Signature(
-				requestMethod: "MOVE",
-				url: url,
+			request.setValue("\(operation.destination)", forHTTPHeaderField: "Destination")
+			request.setValue("\(operation.overwrite)", forHTTPHeaderField: "Overwrite")
+			request.setValue("\(operation.isPrefix)", forHTTPHeaderField: "X-Wasabi-Prefix")
+
+			let awsAuth = try AWSV4Signature(
+				for: request,
 				awsKey: authKey,
 				awsSecret: authSecret,
 				awsRegion: region,
 				awsService: .s3,
-				payloadData: Data(),
-				additionalSignedHeaders: [
-					"Destination": "\(operation.destination)",
-					"Overwrite": "\(operation.overwrite)",
-					"X-Wasabi-Prefix": "\(operation.isPrefix)"
-				])
+				hexContentHash: .emptyPayload)
 
 			request = try awsAuth.processRequest(request)
 
