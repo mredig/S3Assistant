@@ -237,7 +237,7 @@ public final class S3Controller: Sendable {
 						in: bucket,
 						prefix: prefix,
 						delimiter: delimiter,
-						pageLimit: 50,
+						pageLimit: 250,
 						keyMarker: keyMarker,
 						versionIDMarker: versionIDMarker)
 					for item in results.content {

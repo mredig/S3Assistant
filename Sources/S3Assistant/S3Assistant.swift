@@ -3,6 +3,7 @@ import S3AssistantCore
 import Foundation
 import Algorithms
 import SwiftlyDotEnv
+import SwiftPizzaSnips
 
 typealias ENV = SwiftlyDotEnv
 
@@ -17,116 +18,39 @@ struct S3Assistant: AsyncParsableCommand {
 			serviceURL: SwiftlyDotEnv["serviceURL"]!,
 			region: "\(SwiftlyDotEnv["region"]!)")
 
-		try await deleteOldFiles(on: controller)
-
+		try await enumerateObjectVersions(in: "logs", prefix: nil, on: controller)
     }
 
-	func deleteOldFiles(on controller: S3Controller) async throws {
-		var deletedFileCount = 0
-		let ninetyDaysAgo = Date().addingTimeInterval(86400 * -90)
-
-		let oldFiles = try await accumulateOldFiles(
-			before: ninetyDaysAgo,
-			in: "logs",
-			prefix: nil,
-			recurse: true,
-			on: controller)
-
-		let chunks = oldFiles.chunks(ofCount: 1000)
-
-		try await withThrowingTaskGroup(of: Int.self) { group in
-			for chunk in chunks {
-				group.addTask {
-					try await controller.delete(
-						items: Array(chunk),
-						inBucket: "logs",
-						quiet: false)
-					return chunk.count
-				}
-			}
-
-			for try await addtlDeletedCount in group {
-				deletedFileCount += addtlDeletedCount
-				print("Deleted \(deletedFileCount) logs")
-			}
-		}
-	}
-
-	func accumulateOldFiles(
-		before: Date,
-		in bucket: String,
-		prefix: String?,
-		recurse: Bool,
-		on controller: S3Controller) async throws -> [S3Object] {
-			var accumulatedCount = 0
-			return try await controller
-				.listAllObjects(
-					in: bucket,
-					prefix: prefix,
-					delimiter: "/",
-					recurse: recurse) { result, _ in
-						let old = result.files.filter { $0.lastModified < before }
-						accumulatedCount += old.count
-						print("accumulated \(accumulatedCount) old files")
-						return old
-					}
-		}
-
-	func listAccumulatedFileInfo(
-		in bucket: String,
-		prefix: String?,
-		on controller: S3Controller) async throws {
-			let results = try await controller
-				.listAllObjects(
-					in: bucket,
-					prefix: prefix,
-					delimiter: "/",
-					recurse: false)
-
-			print(results.count)
-		}
-
-	func getRecentFiles(on controller: S3Controller) async throws {
-
-		let oneDayAgo = Date().addingTimeInterval(-86400 * 5)
-
-		let files = try await controller.listAllObjects(
-			in: "logs",
-//			prefix: ,
-			delimiter: "/",
-			recurse: false,
-			filter: { result, _ in
-				let recentFiles = result.files.filter { $0.lastModified > oneDayAgo }
-				print("found \(recentFiles.count)...")
-				return recentFiles
-			})
-
-		files
-			.filter { $0.name.contains("plex") == false }
-			.sorted(by: { $0.lastModified < $1.lastModified } )
-			.forEach { print($0) }
-	}
-
-	func getSizeOfFolder(named folderName: String, on controller: S3Controller) async throws {
-		let sizeFormatter = ByteCountFormatter()
-		sizeFormatter.countStyle = .file
-
-		var totalSize: Int = 0
-		_ = try await controller
-			.listAllObjects(
-				in: ENV["bucket"]!,
-				prefix: folderName,
-				delimiter: "/",
-				pageLimit: nil,
-				recurse: true) { result, _ in
-					let thisSize = result.files.map(\.size).reduce(0, +)
-					print("added page size of \(sizeFormatter.string(fromByteCount: Int64(thisSize)))")
-					totalSize += thisSize
-					return result.files
-				}
-
-		print("Total size of directory: \(sizeFormatter.string(fromByteCount: Int64(totalSize)))")
-	}
+//	func deleteOldFiles(on controller: S3Controller) async throws {
+//		var deletedFileCount = 0
+//		let ninetyDaysAgo = Date().addingTimeInterval(86400 * -90)
+//
+//		let oldFiles = try await accumulateOldFiles(
+//			before: ninetyDaysAgo,
+//			in: "logs",
+//			prefix: nil,
+//			recurse: true,
+//			on: controller)
+//
+//		let chunks = oldFiles.chunks(ofCount: 1000)
+//
+//		try await withThrowingTaskGroup(of: Int.self) { group in
+//			for chunk in chunks {
+//				group.addTask {
+//					try await controller.delete(
+//						items: Array(chunk),
+//						inBucket: "logs",
+//						quiet: false)
+//					return chunk.count
+//				}
+//			}
+//
+//			for try await addtlDeletedCount in group {
+//				deletedFileCount += addtlDeletedCount
+//				print("Deleted \(deletedFileCount) logs")
+//			}
+//		}
+//	}
 
 	/// not very useful since it just prints out the byte size, but decent proof of concept at least
 	func getFile(withKey key: String, on controller: S3Controller) async throws {
@@ -150,4 +74,28 @@ struct S3Assistant: AsyncParsableCommand {
 			let xml = try XMLDocument(data: data)
 			print(xml.xmlString(options: .nodePrettyPrint))
 	}
+
+	func enumerateObjectVersions(
+		in bucket: String,
+		prefix: String?,
+		on controller: S3Controller) async throws {
+
+			let stream = try await controller.listAllObjectVersions(in: bucket, prefix: prefix, delimiter: nil)
+
+			var accumulator: (size: Int, count: Int, oldest: Date) = (0, 0, .now)
+			for try await object in stream {
+				print(object)
+				accumulator.count += 1
+				switch object {
+				case .version(let version):
+					accumulator.size += version.size
+					accumulator.oldest = min(accumulator.oldest, version.lastModified)
+				case .deleteMarker(let deleteMarker):
+					guard let lastModified = deleteMarker.lastModified else { continue }
+					accumulator.oldest = min(accumulator.oldest, lastModified)
+				}
+			}
+
+			print(accumulator)
+		}
 }
