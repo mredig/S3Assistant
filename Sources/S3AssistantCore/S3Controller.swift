@@ -57,13 +57,12 @@ public class S3Controller {
 			var request = url.request
 
 			let awsAuth = AWSV4Signature(
-				requestMethod: .get,
 				url: url,
 				awsKey: authKey,
 				awsSecret: authSecret,
 				awsRegion: region,
 				awsService: .s3,
-				payloadData: Data(),
+				hexContentHash: .unsignedPayload,
 				additionalSignedHeaders: [:])
 
 			request = try awsAuth.processRequest(request)
