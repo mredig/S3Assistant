@@ -1,4 +1,4 @@
-public struct S3ListVersionResult: Decodable, CustomStringConvertible {
+public struct S3ListObjectVersionsResult: Decodable, CustomStringConvertible {
 	public let name: String
 	public let prefix: String?
 	public let delimiter: String?

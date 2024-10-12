@@ -133,7 +133,7 @@ public final class S3Controller: Sendable {
 		pageLimit: Int? = nil,
 		keyMarker: String? = nil,
 		versionIDMarker: String? = nil
-	) async throws -> S3ListVersionResult {
+	) async throws -> S3ListObjectVersionsResult {
 
 		let url = serviceURL
 			.appending(component: bucket)
@@ -174,7 +174,7 @@ public final class S3Controller: Sendable {
 			return try iso8601.date(from: dateStr).unwrap("No valid date")
 		})
 		decoder.keyDecodingStrategy = .convertFromCapitalized
-		let versionResult = try decoder.decode(S3ListVersionResult.self, from: response.data)
+		let versionResult = try decoder.decode(S3ListObjectVersionsResult.self, from: response.data)
 
 //		let xml = try XMLDocument(data: response.data)
 

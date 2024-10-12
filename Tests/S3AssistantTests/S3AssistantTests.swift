@@ -21,7 +21,7 @@ final class S3AssistantTests: XCTestCase {
 		})
 		decoder.keyDecodingStrategy = .convertFromCapitalized
 
-		let test = try decoder.decode(S3ListVersionResult.self, from: data)
+		let test = try decoder.decode(S3ListObjectVersionsResult.self, from: data)
 
 		print(test)
 	}
