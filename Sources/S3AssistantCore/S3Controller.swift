@@ -133,38 +133,64 @@ public class S3Controller {
 		delimiter: String? = nil,
 		pageLimit: Int? = nil,
 		keyMarker: String? = nil,
-		versionIDMarker: String? = nil) async throws -> Data {
+		versionIDMarker: String? = nil
+	) async throws -> S3ListObjectVersionsResult {
 
-			let url = serviceURL
-				.appending(component: bucket)
-				.appending(queryItems: [
-					URLQueryItem(name: "versions", value: nil),
-					delimiter.flatMap { URLQueryItem(name: "delimiter", value: $0) },
-					prefix.flatMap { URLQueryItem(name: "prefix", value: $0) },
-					pageLimit.flatMap { URLQueryItem(name: "max-keys", value: "\($0)") },
-					keyMarker.flatMap { URLQueryItem(name: "key-marker", value: $0) },
-					versionIDMarker.flatMap { URLQueryItem(name: "version-id-marker", value: $0) },
-				].compactMap { $0 })
+		let url = serviceURL
+			.appending(component: bucket)
+			.appending(queryItems: [
+				URLQueryItem(name: "versions", value: nil),
+				delimiter.flatMap { URLQueryItem(name: "delimiter", value: $0) },
+				prefix.flatMap { URLQueryItem(name: "prefix", value: $0) },
+				pageLimit.flatMap { URLQueryItem(name: "max-keys", value: "\($0)") },
+				keyMarker.flatMap { URLQueryItem(name: "key-marker", value: $0) },
+				versionIDMarker.flatMap { URLQueryItem(name: "version-id-marker", value: $0) },
+			].compactMap { $0 })
 
-			var request = url.request
+		var request = url.request
 
-			let awsAuth = AWSV4Signature(
-				requestMethod: .get,
-				url: url,
-				awsKey: authKey,
-				awsSecret: authSecret,
-				awsRegion: region,
-				awsService: .s3,
-				payloadData: Data(),
-				additionalSignedHeaders: [:])
+		let awsAuth = AWSV4Signature(
+			requestMethod: .get,
+			url: url,
+			date: .now,
+			awsKey: authKey,
+			awsSecret: authSecret,
+			awsRegion: region,
+			awsService: .s3,
+			hexContentHash: .unsignedPayload,
+			additionalSignedHeaders: [:])
 
-			request = try awsAuth.processRequest(request)
+		request = try awsAuth.processRequest(request)
 
-			let response = try await NetworkHandler.default.transferMahDatas(for: request)
+		let response = try await NetworkHandler.default.transferMahDatas(for: request)
 
+		let xml = try XMLDocument(data: response.data)
+		
+		let resultNode = xml.child(at: 0)
+		let delimiterNode = resultNode?.children?.first(where: { $0.name == "Delimiter" })
+		let nextKeyMarkerNode = resultNode?.children?.first(where: { $0.name == "NextKeyMarker" })
+		let nextVersionMarkerNode = resultNode?.children?.first(where: { $0.name == "NextVersionIdMarker" })
+		let prefixNode = resultNode?.children?.first(where: { $0.name == "Prefix" })
+		let filesNodes = resultNode?.children?.filter { $0.name == "Version" } ?? []
+		//			let foldersNodes = resultNode?.children?.filter { $0.name == "CommonPrefixes" }.flatMap { $0.children ?? [] } ?? []
 
-			return response.data
-		}
+		let responseDelimiter = delimiterNode?.stringValue
+		let responsePrefix = prefixNode?.stringValue
+		let files = try filesNodes.map { try S3Object(from: $0, delimiter: responseDelimiter) }
+
+		let nextMarker: (String, String)? = {
+			guard
+				let key = nextKeyMarkerNode?.stringValue, let version = nextVersionMarkerNode?.stringValue
+			else { return nil }
+			return (key, version)
+		}()
+
+		return S3ListObjectVersionsResult(
+			prefix: prefixNode?.stringValue,
+			delimiter: delimiterNode?.stringValue,
+			nextMarker: nextMarker,
+			versions: files)
+	}
 
 	public func delete(
 		items: [S3Object],
