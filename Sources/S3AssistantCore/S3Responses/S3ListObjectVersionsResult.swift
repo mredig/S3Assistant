@@ -45,14 +45,8 @@ public struct S3ListObjectVersionsResult: Decodable, CustomStringConvertible {
 		let name = try container.decode(String.self, forKey: .name)
 		let prefix = try container.decodeIfPresent(String.self, forKey: .prefix)
 		let delimiter = try container.decodeIfPresent(String.self, forKey: .delimiter)
-		let versions = try container.decode([S3ObjectVersion].self, forKey: .versions).with { instance in
-			guard let delimiter else { return }
-			instance = instance.map { $0.withDelimiter(delimiter) }
-		}
-		let deleteMarkers = try container.decode([S3ObjectVersionDeleteMarker].self, forKey: .deleteMarkers).with { instance in
-			guard let delimiter else { return }
-			instance = instance.map { $0.withDelimiter(delimiter) }
-		}
+		let versions = try container.decode([S3ObjectVersion].self, forKey: .versions).withDelimiter(delimiter)
+		let deleteMarkers = try container.decode([S3ObjectVersionDeleteMarker].self, forKey: .deleteMarkers).withDelimiter(delimiter)
 		let nextMarker = try? NextMarker(from: decoder)
 
 		self.init(

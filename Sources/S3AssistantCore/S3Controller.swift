@@ -89,21 +89,9 @@ public final class S3Controller: Sendable {
 
 			let response = try await NetworkHandler.default.transferMahDatas(for: request)
 
-			let xml = try XMLDocument(data: response.data)
+			let result = try decoder.decode(S3ListBucketResult.self, from: response.data)
 
-			let resultNode = xml.child(at: 0)
-			let delimiterNode = resultNode?.children?.first(where: { $0.name == "Delimiter" })
-			let continuationNode = resultNode?.children?.first(where: { $0.name == "NextContinuationToken" })
-			let prefixNode = resultNode?.children?.first(where: { $0.name == "Prefix" })
-			let filesNodes = resultNode?.children?.filter { $0.name == "Contents" } ?? []
-			let foldersNodes = resultNode?.children?.filter { $0.name == "CommonPrefixes" }.flatMap { $0.children ?? [] } ?? []
-
-			let responseDelimiter = delimiterNode?.stringValue
-			let responsePrefix = prefixNode?.stringValue
-			let files = try filesNodes.map { try S3Object(from: $0, delimiter: responseDelimiter) }
-			let folders = foldersNodes.compactMap(\.stringValue).map { S3Folder(rawValue: $0, delimiter: responseDelimiter) }
-
-			return S3ListBucketResult(prefix: responsePrefix, delimiter: responseDelimiter, nextContinuation: continuationNode?.stringValue, files: files, folders: folders)
+			return result
 		}
 
 	public func listAllObjects(
@@ -111,40 +99,86 @@ public final class S3Controller: Sendable {
 		prefix: String? = nil,
 		delimiter: String? = nil,
 		pageLimit: Int? = nil,
-		recurse: Bool = false,
-		filter: (S3ListBucketResult, inout Bool) -> [S3Object] = { result, _ in result.files } ) async throws -> [S3Object] {
+		recurse: Bool = false
+	) async throws -> AsyncThrowingStream<S3ListBucketResult, Error> {
+		let (stream, continuation) = AsyncThrowingStream<S3ListBucketResult, Error>.makeStream()
 
-			var accumulatedFiles: [S3Object] = []
-			var shouldContinue = true
+		Task {
+			var visitedSubdirectories: Set<S3Folder> = []
+			var subdirectories: Set<S3Folder> = []
+			var currentDirectory = S3Folder(rawValue: prefix ?? "")
 			var continuationToken: String?
+			var keepGoing = true
 			repeat {
-				let result = try await listObjects(
-					in: bucket,
-					prefix: prefix,
-					delimiter: delimiter,
-					pageLimit: pageLimit,
-					continuationToken: continuationToken)
+				do {
+					let results = try await listObjects(
+						in: bucket,
+						prefix: currentDirectory.prefix,
+						delimiter: delimiter,
+						pageLimit: pageLimit,
+						continuationToken: continuationToken)
+					continuation.yield(results)
+					let newDirectories = results.folders.filter { visitedSubdirectories.contains($0) == false }
+					subdirectories.formUnion(newDirectories)
 
-				accumulatedFiles.append(contentsOf: filter(result, &shouldContinue))
-				continuationToken = result.nextContinuation
-
-				if recurse, result.folders.isEmpty == false {
-					for folder in result.folders {
-						let folderFiles = try await listAllObjects(
-							in: bucket,
-							prefix: folder.prefix,
-							delimiter: delimiter,
-							pageLimit: pageLimit,
-							recurse: recurse,
-							filter: filter)
-						accumulatedFiles.append(contentsOf: folderFiles)
+					if let nextContinuation = results.nextContinuation {
+						continuationToken = nextContinuation
+					} else if let nextDirectory = subdirectories.popFirst() {
+						visitedSubdirectories.insert(currentDirectory)
+						currentDirectory = nextDirectory
+					} else {
+						continuation.finish()
 					}
+				} catch {
+					keepGoing = false
+					continuation.finish(throwing: error)
 				}
-
-			} while continuationToken != nil && shouldContinue == true
-
-			return accumulatedFiles
+			} while keepGoing
 		}
+
+		return stream
+	}
+
+	@available(*, deprecated)
+	public func listAllObjects(
+		in bucket: String,
+		prefix: String? = nil,
+		delimiter: String? = nil,
+		pageLimit: Int? = nil,
+		recurse: Bool = false,
+		filter: (S3ListBucketResult, inout Bool) -> [S3ObjectVersion] = { result, _ in result.files }
+	) async throws -> [S3ObjectVersion] {
+		var accumulatedFiles: [S3ObjectVersion] = []
+		var shouldContinue = true
+		var continuationToken: String?
+		repeat {
+			let result = try await listObjects(
+				in: bucket,
+				prefix: prefix,
+				delimiter: delimiter,
+				pageLimit: pageLimit,
+				continuationToken: continuationToken)
+
+			accumulatedFiles.append(contentsOf: filter(result, &shouldContinue))
+			continuationToken = result.nextContinuation
+
+			if recurse, result.folders.isEmpty == false {
+				for folder in result.folders {
+					let folderFiles = try await listAllObjects(
+						in: bucket,
+						prefix: folder.prefix,
+						delimiter: delimiter,
+						pageLimit: pageLimit,
+						recurse: recurse,
+						filter: filter)
+					accumulatedFiles.append(contentsOf: folderFiles)
+				}
+			}
+
+		} while continuationToken != nil && shouldContinue == true
+
+		return accumulatedFiles
+	}
 
 	public func listObjectVersions(
 		in bucket: String,
@@ -183,33 +217,7 @@ public final class S3Controller: Sendable {
 
 		let response = try await NetworkHandler.default.transferMahDatas(for: request)
 
-		let versionResult = try decoder.decode(S3ListObjectVersionsResult.self, from: response.data)
-
-//		let xml = try XMLDocument(data: response.data)
-
-//		let resultNode = xml.child(at: 0)
-//		let delimiterNode = resultNode?.children?.first(where: { $0.name == "Delimiter" })
-//		let nextKeyMarkerNode = resultNode?.children?.first(where: { $0.name == "NextKeyMarker" })
-//		let nextVersionMarkerNode = resultNode?.children?.first(where: { $0.name == "NextVersionIdMarker" })
-//		let prefixNode = resultNode?.children?.first(where: { $0.name == "Prefix" })
-//		let filesNodes = resultNode?.children?.filter { $0.name == "Version" } ?? []
-//
-//		let responseDelimiter = delimiterNode?.stringValue
-//		let files = try filesNodes.map { try S3Object(from: $0, delimiter: responseDelimiter) }
-//
-//		let nextMarker: (String, String)? = {
-//			guard
-//				let key = nextKeyMarkerNode?.stringValue, let version = nextVersionMarkerNode?.stringValue
-//			else { return nil }
-//			return (key, version)
-//		}()
-//
-//		return S3ListObjectVersionsResult(
-//			prefix: prefixNode?.stringValue,
-//			delimiter: delimiterNode?.stringValue,
-//			nextMarker: nextMarker,
-//			versions: files)
-		return versionResult
+		return try decoder.decode(S3ListObjectVersionsResult.self, from: response.data)
 	}
 
 	public func listAllObjectVersions(

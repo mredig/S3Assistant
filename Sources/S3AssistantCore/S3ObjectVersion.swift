@@ -1,6 +1,6 @@
 import Foundation
 
-public struct S3ObjectVersion: Codable, Sendable, Hashable, CustomStringConvertible {
+public struct S3ObjectVersion: Codable, Sendable, Hashable, CustomStringConvertible, Delimiterable {
 	public let eTag: String?
 	public let key: String
 	public var name: String {
@@ -81,12 +81,6 @@ public struct S3ObjectVersion: Codable, Sendable, Hashable, CustomStringConverti
 		accum.append("\t\tisLatest: \(versioning.isLatest)")
 		accum.append("\t\tversionID: \(versioning.versionID)")
 		return accum.joined(separator: "\n")
-	}
-
-	package func withDelimiter(_ delimiter: String?) -> S3ObjectVersion {
-		var new = self
-		new.delimiter = delimiter
-		return new
 	}
 }
 

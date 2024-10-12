@@ -1,6 +1,6 @@
 import Foundation
 
-public struct S3ObjectVersionDeleteMarker: Sendable, Hashable, Codable, CustomStringConvertible {
+public struct S3ObjectVersionDeleteMarker: Sendable, Hashable, Codable, CustomStringConvertible, Delimiterable {
 	public let key: String
 	public var name: String? {
 		guard let delimiter else { return key }
@@ -41,12 +41,6 @@ public struct S3ObjectVersionDeleteMarker: Sendable, Hashable, Codable, CustomSt
 		isLatest.map { accum.append("\tisLatest: \($0)") }
 		versionID.map { accum.append("\tversionID: \($0)") }
 		return accum.joined(separator: "\n")
-	}
-
-	package func withDelimiter(_ delimiter: String?) -> S3ObjectVersionDeleteMarker {
-		var new = self
-		new.delimiter = delimiter
-		return new
 	}
 }
 
