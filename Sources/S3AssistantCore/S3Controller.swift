@@ -1,9 +1,9 @@
 import Foundation
-import NetworkHandler
+import XMLCoder
+@preconcurrency import NetworkHandler
+import SwiftPizzaSnips
 
-public class S3Controller {
-	private(set) var items: [String] = []
-
+public final class S3Controller: Sendable {
 	private let authKey: String
 	private let authSecret: String
 	private let serviceURL: URL
@@ -133,7 +133,7 @@ public class S3Controller {
 		pageLimit: Int? = nil,
 		keyMarker: String? = nil,
 		versionIDMarker: String? = nil
-	) async throws -> S3ListObjectVersionsResult {
+	) async throws -> S3ListVersionResult {
 
 		let url = serviceURL
 			.appending(component: bucket)
@@ -163,32 +163,82 @@ public class S3Controller {
 
 		let response = try await NetworkHandler.default.transferMahDatas(for: request)
 
-		let xml = try XMLDocument(data: response.data)
-		
-		let resultNode = xml.child(at: 0)
-		let delimiterNode = resultNode?.children?.first(where: { $0.name == "Delimiter" })
-		let nextKeyMarkerNode = resultNode?.children?.first(where: { $0.name == "NextKeyMarker" })
-		let nextVersionMarkerNode = resultNode?.children?.first(where: { $0.name == "NextVersionIdMarker" })
-		let prefixNode = resultNode?.children?.first(where: { $0.name == "Prefix" })
-		let filesNodes = resultNode?.children?.filter { $0.name == "Version" } ?? []
-		//			let foldersNodes = resultNode?.children?.filter { $0.name == "CommonPrefixes" }.flatMap { $0.children ?? [] } ?? []
+		let iso8601 = ISO8601DateFormatter()
+		iso8601.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+		let decoder = XMLDecoder()
+		decoder.dateDecodingStrategy = .custom({ decoder in
+			let container = try decoder.singleValueContainer()
 
-		let responseDelimiter = delimiterNode?.stringValue
-		let responsePrefix = prefixNode?.stringValue
-		let files = try filesNodes.map { try S3Object(from: $0, delimiter: responseDelimiter) }
+			let dateStr = try container.decode(String.self)
 
-		let nextMarker: (String, String)? = {
-			guard
-				let key = nextKeyMarkerNode?.stringValue, let version = nextVersionMarkerNode?.stringValue
-			else { return nil }
-			return (key, version)
-		}()
+			return try iso8601.date(from: dateStr).unwrap("No valid date")
+		})
+		decoder.keyDecodingStrategy = .convertFromCapitalized
+		let versionResult = try decoder.decode(S3ListVersionResult.self, from: response.data)
 
-		return S3ListObjectVersionsResult(
-			prefix: prefixNode?.stringValue,
-			delimiter: delimiterNode?.stringValue,
-			nextMarker: nextMarker,
-			versions: files)
+//		let xml = try XMLDocument(data: response.data)
+
+//		let resultNode = xml.child(at: 0)
+//		let delimiterNode = resultNode?.children?.first(where: { $0.name == "Delimiter" })
+//		let nextKeyMarkerNode = resultNode?.children?.first(where: { $0.name == "NextKeyMarker" })
+//		let nextVersionMarkerNode = resultNode?.children?.first(where: { $0.name == "NextVersionIdMarker" })
+//		let prefixNode = resultNode?.children?.first(where: { $0.name == "Prefix" })
+//		let filesNodes = resultNode?.children?.filter { $0.name == "Version" } ?? []
+//
+//		let responseDelimiter = delimiterNode?.stringValue
+//		let files = try filesNodes.map { try S3Object(from: $0, delimiter: responseDelimiter) }
+//
+//		let nextMarker: (String, String)? = {
+//			guard
+//				let key = nextKeyMarkerNode?.stringValue, let version = nextVersionMarkerNode?.stringValue
+//			else { return nil }
+//			return (key, version)
+//		}()
+//
+//		return S3ListObjectVersionsResult(
+//			prefix: prefixNode?.stringValue,
+//			delimiter: delimiterNode?.stringValue,
+//			nextMarker: nextMarker,
+//			versions: files)
+		return versionResult
+	}
+
+	public func listAllObjectVersions(
+		in bucket: String,
+		prefix: String? = nil,
+		delimiter: String? = nil
+	) async throws -> AsyncThrowingStream<S3ObjectVersion, Error> {
+		let (stream, continuation) = AsyncThrowingStream<S3ObjectVersion, Error>.makeStream()
+
+		Task {
+			var keyMarker: String?
+			var versionIDMarker: String?
+			var keepGoing = true
+			repeat {
+				do {
+					let results = try await listObjectVersions(
+						in: bucket,
+						prefix: prefix,
+						delimiter: delimiter,
+						pageLimit: 50,
+						keyMarker: keyMarker,
+						versionIDMarker: versionIDMarker)
+					for version in results.versions {
+						continuation.yield(version)
+					}
+					guard let nextMarker = results.nextMarker else {
+						return continuation.finish()
+					}
+					keyMarker = nextMarker.nextKeyMarker
+					versionIDMarker = nextMarker.nextVersionIDMarker
+				} catch {
+					keepGoing = false
+					continuation.finish(throwing: error)
+				}
+			} while keepGoing
+		}
+
+		return stream
 	}
 
 	public func delete(

@@ -13,10 +13,7 @@ public struct S3Object: Codable, Hashable, Sendable, CustomStringConvertible {
 	public let storageClass: String
 	public let versioning: Versioning?
 
-	public struct Versioning: Codable, Hashable, Sendable {
-		let isLatest: Bool
-		let versionID: String
-	}
+	public typealias Versioning = S3ObjectVersion.Versioning
 
 	public var description: String {
 		var accum: [String] = []
