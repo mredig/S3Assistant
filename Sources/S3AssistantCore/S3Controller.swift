@@ -304,7 +304,9 @@ public class S3Controller {
 		}
 
 	public enum WasabiMoveOperation {
+		/// Only move the file that exactly matches the `sourceKey`
 		case exact(sourceKey: String, destinationKey: String, overwrite: Bool)
+		/// Move every file that starts with the `sourcePrefix`.
 		case prefix(sourcePrefix: String, destinationPrefix: String, overwrite: Bool)
 
 		var source: String {
