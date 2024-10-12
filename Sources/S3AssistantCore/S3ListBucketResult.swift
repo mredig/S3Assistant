@@ -9,14 +9,19 @@ public struct S3ListBucketResult: CustomStringConvertible {
 	public let folders: [S3Folder]
 
 	public var description: String {
-	"""
-	S3 Result: \(prefix ?? "##noprefix##")
-		delimiter: \(delimiter ?? "##nodelimiter##")
-		files:
-	\(files.map(\.description).map { $0.addIndentation(count: 2)}.joined(separator: "\n"))
-		folders:
-	\(folders.map(\.description).map { $0.addIndentation(count: 2)}.joined(separator: "\n"))
-	"""
+		var accum: [String] = []
+		if let prefix {
+			accum.append("S3ListBucketResult: \(prefix)")
+		} else {
+			accum.append("S3ListBucketResult:")
+		}
+		delimiter.map { accum.append("\tdelimiter: \($0)")}
+		accum.append("\tfiles:")
+		accum.append(files.map(\.description).map { $0.addIndentation(count: 2) }.joined(separator: "\n"))
+		accum.append("\tfolders:")
+		accum.append(folders.map(\.description).map { $0.addIndentation(count: 2) }.joined(separator: "\n"))
+
+		return accum.joined(separator: "\n")
 	}
 }
 
@@ -31,3 +36,4 @@ extension String {
 		return lines
 	}
 }
+
