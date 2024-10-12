@@ -1,5 +1,6 @@
 import Foundation
 
+@available(*, deprecated)
 public struct S3Object: Codable, Hashable, Sendable, CustomStringConvertible {
 	public let key: String
 	public var name: String {

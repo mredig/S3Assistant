@@ -1,5 +1,5 @@
 import Foundation
-import XMLCoder
+@preconcurrency import XMLCoder
 @preconcurrency import NetworkHandler
 import SwiftPizzaSnips
 
@@ -8,6 +8,26 @@ public final class S3Controller: Sendable {
 	private let authSecret: String
 	private let serviceURL: URL
 	private let region: AWSV4Signature.AWSRegion
+
+	private let decoder = XMLDecoder().with {
+		$0.keyDecodingStrategy = .convertFromCapitalized
+		$0.dateDecodingStrategy = .custom({ decoder in
+			let container = try decoder.singleValueContainer()
+
+			let dateStr = try container.decode(String.self)
+
+			return try Formatters.isoFormatter.date(from: dateStr).unwrap("No valid date")
+		})
+	}
+	private let encoder = XMLEncoder().with {
+		$0.dateEncodingStrategy = .custom({ date, encoder in
+			let dateStr = Formatters.isoFormatter.string(from: date)
+
+			var container = encoder.singleValueContainer()
+			try container.encode(dateStr)
+		})
+		$0.keyEncodingStrategy = .capitalized
+	}
 
 	// TODO: make AWSV4Signature.isoFormatter public instead
 	private static let isoFormatter: ISO8601DateFormatter = {
@@ -163,17 +183,6 @@ public final class S3Controller: Sendable {
 
 		let response = try await NetworkHandler.default.transferMahDatas(for: request)
 
-		let iso8601 = ISO8601DateFormatter()
-		iso8601.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-		let decoder = XMLDecoder()
-		decoder.dateDecodingStrategy = .custom({ decoder in
-			let container = try decoder.singleValueContainer()
-
-			let dateStr = try container.decode(String.self)
-
-			return try iso8601.date(from: dateStr).unwrap("No valid date")
-		})
-		decoder.keyDecodingStrategy = .convertFromCapitalized
 		let versionResult = try decoder.decode(S3ListObjectVersionsResult.self, from: response.data)
 
 //		let xml = try XMLDocument(data: response.data)
@@ -207,8 +216,8 @@ public final class S3Controller: Sendable {
 		in bucket: String,
 		prefix: String? = nil,
 		delimiter: String? = nil
-	) async throws -> AsyncThrowingStream<S3ObjectVersion, Error> {
-		let (stream, continuation) = AsyncThrowingStream<S3ObjectVersion, Error>.makeStream()
+	) async throws -> AsyncThrowingStream<S3ListObjectVersionsResult.ContentOption, Error> {
+		let (stream, continuation) = AsyncThrowingStream<S3ListObjectVersionsResult.ContentOption, Error>.makeStream()
 
 		Task {
 			var keyMarker: String?
@@ -223,8 +232,8 @@ public final class S3Controller: Sendable {
 						pageLimit: 50,
 						keyMarker: keyMarker,
 						versionIDMarker: versionIDMarker)
-					for version in results.versions {
-						continuation.yield(version)
+					for item in results.content {
+						continuation.yield(item)
 					}
 					guard let nextMarker = results.nextMarker else {
 						return continuation.finish()
@@ -242,12 +251,16 @@ public final class S3Controller: Sendable {
 	}
 
 	public func delete(
-		items: [S3Object],
+		items: [S3ObjectIdentifierProvider],
 		inBucket bucket: String,
 		quiet: Bool = false) async throws {
-			let itemXml = try items.deleteList(quiet: quiet)
+			let identifiers = items.map(\.objectIdentifier)
+			let deleteRequest = S3DeleteObjectsRequest(quiet: quiet, objects: identifiers)
 
-			let xmlData = itemXml.xmlData()
+			let xmlData = try encoder.encode(
+				deleteRequest,
+				withRootKey: S3DeleteObjectsRequest.rootKey,
+				rootAttributes: ["xmlns": "http://s3.amazonaws.com/doc/2006-03-01/"])
 
 			let url = serviceURL
 				.appending(component: bucket)
@@ -266,7 +279,7 @@ public final class S3Controller: Sendable {
 				awsSecret: authSecret,
 				awsRegion: region,
 				awsService: .s3,
-				payloadData: xmlData,
+				hexContentHash: .unsignedPayload,
 				additionalSignedHeaders: [:])
 
 			request = try awsAuth.processRequest(request)

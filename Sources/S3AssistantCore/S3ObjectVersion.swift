@@ -1,8 +1,13 @@
 import Foundation
 
-public struct S3ObjectVersion: Codable {
+public struct S3ObjectVersion: Codable, Sendable, Hashable, CustomStringConvertible {
 	public let eTag: String?
 	public let key: String
+	public var name: String {
+		guard let delimiter else { return key }
+		return key.split(separator: delimiter).last.flatMap { String($0) } ?? ""
+	}
+	public package(set) var delimiter: String?
 	public let lastModified: Date
 	public let size: Int
 	public let storageClass: String
@@ -29,6 +34,7 @@ public struct S3ObjectVersion: Codable {
 	public init(
 		eTag: String?,
 		key: String,
+		delimiter: String?,
 		lastModified: Date,
 		size: Int,
 		storageClass: String,
@@ -36,6 +42,7 @@ public struct S3ObjectVersion: Codable {
 	) {
 		self.eTag = eTag
 		self.key = key
+		self.delimiter = delimiter
 		self.lastModified = lastModified
 		self.size = size
 		self.storageClass = storageClass
@@ -55,11 +62,36 @@ public struct S3ObjectVersion: Codable {
 		self.init(
 			eTag: eTag,
 			key: key,
+			delimiter: nil,
 			lastModified: lastModified,
 			size: size,
 			storageClass: storageClass,
 			versioning: versioning)
 	}
+
+	public var description: String {
+		var accum: [String] = []
+		accum.append("Object Version: \(name)")
+		accum.append("\tkey: \(key)")
+		accum.append("\tlastModified: \(Formatters.dateFormatter.string(from: lastModified))")
+		accum.append("\tsize: \(size)")
+
+		guard let versioning = versioning else { return accum.joined(separator: "\n") }
+		accum.append("\tVersioning:")
+		accum.append("\t\tisLatest: \(versioning.isLatest)")
+		accum.append("\t\tversionID: \(versioning.versionID)")
+		return accum.joined(separator: "\n")
+	}
+
+	package func withDelimiter(_ delimiter: String?) -> S3ObjectVersion {
+		var new = self
+		new.delimiter = delimiter
+		return new
+	}
 }
 
-
+extension S3ObjectVersion: S3ObjectIdentifierProvider {
+	public var objectIdentifier: S3ObjectIdentifier {
+		S3ObjectIdentifier(key: key, versionID: versioning?.versionID)
+	}
+}
