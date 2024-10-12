@@ -1,6 +1,6 @@
 import Foundation
 
-public struct S3Object: Codable, CustomStringConvertible {
+public struct S3Object: Codable, Hashable, Sendable, CustomStringConvertible {
 	public let key: String
 	public var name: String {
 		guard let delimiter else { return key }
@@ -13,7 +13,7 @@ public struct S3Object: Codable, CustomStringConvertible {
 	public let storageClass: String
 	public let versioning: Versioning?
 
-	public struct Versioning: Codable {
+	public struct Versioning: Codable, Hashable, Sendable {
 		let isLatest: Bool
 		let versionID: String
 	}

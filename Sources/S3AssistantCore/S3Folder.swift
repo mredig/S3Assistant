@@ -1,6 +1,6 @@
 import Foundation
 
-public struct S3Folder: RawRepresentable, CustomStringConvertible {
+public struct S3Folder: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
 	public let rawValue: String
 	public var prefix: String { rawValue }
 	public var name: String {

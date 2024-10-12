@@ -1,6 +1,6 @@
 import Foundation
 
-public struct S3ListBucketResult: CustomStringConvertible {
+public struct S3ListBucketResult: Sendable, CustomStringConvertible {
 	public let prefix: String?
 	public let delimiter: String?
 	public let nextContinuation: String?

@@ -1,4 +1,4 @@
-public struct S3ListObjectVersionsResult: CustomStringConvertible {
+public struct S3ListObjectVersionsResult: Sendable, CustomStringConvertible {
 	public let prefix: String?
 	public let delimiter: String?
 	public let nextMarker: (key: String, versionID: String)?
