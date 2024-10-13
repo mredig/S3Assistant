@@ -12,7 +12,8 @@ let package = Package(
 		.package(url: "https://github.com/apple/swift-algorithms", from: "1.0.0"),
 		.package(url: "https://github.com/mredig/SwiftlyDotEnv.git", from: "0.1.0"),
 		.package(url: "https://github.com/mredig/SwiftPizzaSnips.git", .upToNextMinor(from: "0.4.0")),
-		.package(url: "https://github.com/CoreOffice/XMLCoder.git", from: "0.17.1")
+		.package(url: "https://github.com/CoreOffice/XMLCoder.git", from: "0.17.1"),
+		.package(url: "https://github.com/mredig/SwiftCurses.git", branch: "linux-contrib"),
 	],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -26,6 +27,7 @@ let package = Package(
 				"SwiftlyDotEnv",
 				"SwiftPizzaSnips",
 				"XMLCoder",
+				"SwiftCurses",
             ]
         ),
 		.target(

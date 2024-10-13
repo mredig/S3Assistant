@@ -9,6 +9,14 @@ public final class S3Controller: Sendable {
 	private let serviceURL: URL
 	private let region: AWSV4Signature.AWSRegion
 
+	private let lock = NSLock()
+	nonisolated(unsafe)
+	private var _printXML = false
+	public var printXML: Bool {
+		get { lock.withLock { _printXML } }
+		set { lock.withLock { _printXML = newValue }}
+	}
+
 	private let decoder = XMLDecoder().with {
 		$0.keyDecodingStrategy = .convertFromCapitalized
 		$0.dateDecodingStrategy = .custom({ decoder in
@@ -88,6 +96,8 @@ public final class S3Controller: Sendable {
 			request = try awsAuth.processRequest(request)
 
 			let response = try await NetworkHandler.default.transferMahDatas(for: request)
+
+			if printXML { printXMLResponse(response.data) }
 
 			let result = try decoder.decode(S3ListBucketResult.self, from: response.data)
 
@@ -216,6 +226,7 @@ public final class S3Controller: Sendable {
 		request = try awsAuth.processRequest(request)
 
 		let response = try await NetworkHandler.default.transferMahDatas(for: request)
+		if printXML { printXMLResponse(response.data) }
 
 		return try decoder.decode(S3ListObjectVersionsResult.self, from: response.data)
 	}
@@ -293,6 +304,7 @@ public final class S3Controller: Sendable {
 			request = try awsAuth.processRequest(request)
 
 			let response = try await NetworkHandler.default.transferMahDatas(for: request)
+			if printXML { printXMLResponse(response.data) }
 
 			let responseXml = try XMLDocument(data: response.data)
 			print(responseXml.xmlString(options: .nodePrettyPrint))
@@ -461,7 +473,20 @@ public final class S3Controller: Sendable {
 			request = try awsAuth.processRequest(request)
 
 			let response = try await NetworkHandler.default.transferMahDatas(for: request)
+			if printXML { printXMLResponse(response.data) }
 
 			return response.data
 		}
+}
+
+extension S3Controller {
+	private func printXMLResponse(_ xmlData: Data) {
+		let xmlStr = String(decoding: xmlData, as: UTF8.self)
+
+		guard
+			let xmlDoc = try? XMLDocument(xmlString: xmlStr)
+		else { return print(xmlStr) }
+
+		print(xmlDoc.xmlString(options: .nodePrettyPrint))
+	}
 }

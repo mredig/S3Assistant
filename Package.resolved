@@ -55,6 +55,15 @@
       }
     },
     {
+      "identity" : "swiftcurses",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mredig/SwiftCurses.git",
+      "state" : {
+        "branch" : "linux-contrib",
+        "revision" : "a2468485748f13c83353a51fa9a8ca7723a9e21c"
+      }
+    },
+    {
       "identity" : "swiftlydotenv",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mredig/SwiftlyDotEnv.git",
